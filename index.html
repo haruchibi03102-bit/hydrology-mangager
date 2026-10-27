@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>現場水文データ計測管理システム</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-sub: #475569;
+      --border: #cbd5e1;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #d97706;
+      --accent: #0284c7;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 10px; padding-bottom: 60px; }
+
+    header {
+      background-color: var(--primary);
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    header h1 { font-size: 1.2rem; margin-bottom: 0.2rem; }
+    header p { font-size: 0.8rem; opacity: 0.9; }
+
+    .nav-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .tab-btn {
+      padding: 0.75rem 0.5rem;
+      border: 2px solid var(--border);
+      background: white;
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: var(--text-sub);
+      cursor: pointer;
+      border-radius: 8px;
+      text-align: center;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .tab-btn.active {
+      background-color: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      box-shadow: 0 2px 4px rgba(30, 58, 138, 0.2);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 1rem;
+      border: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      color: var(--primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #f1f5f9;
+      padding-bottom: 0.5rem;
+    }
+
+    .form-group { margin-bottom: 1rem; }
+    label { display: block; font-weight: bold; margin-bottom: 0.3rem; font-size: 0.9rem; }
+
+    select, input[type="text"], input[type="datetime-local"], input[type="number"], textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 1rem;
+      background: #fff;
+    }
+
+    textarea { resize: vertical; min-height: 60px; }
+
+    .row { display: flex; gap: 0.5rem; }
+    .col { flex: 1; }
+
+    /* 前回値リファレンス表示ボックス */
+    .reference-box {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      color: #0369a1;
+    }
+    .reference-box strong { color: #0284c7; }
+
+    .btn {
+      width: 100%;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+    }
+
+    .btn-primary { background-color: var(--primary); color: white; }
+    .btn-secondary { background-color: #64748b; color: white; }
+    .btn-danger { background-color: var(--danger); color: white; }
+    .btn-warning { background-color: var(--warning); color: white; }
+    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.85rem; width: auto; }
+
+    .list-item {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      background: #e2e8f0;
+      font-weight: bold;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>現場水文データ計測管理</h1>
+    <p>🛡️ 完全オフライン保護 & リファレンス機能稼働中</p>
+  </header>
+
+  <!-- タブボタン -->
+  <div class="nav-grid">
+    <button class="tab-btn active" data-target="input-tab">📝 データ入力</button>
+    <button class="tab-btn" data-target="view-tab">📊 データー一覧</button>
+    <button class="tab-btn" data-target="master-tab">🏞️ 流域・場所設定</button>
+    <button class="tab-btn" data-target="backup-tab">🛡️ バックアップ</button>
+  </div>
+
+  <!-- 1. データ入力タブ -->
+  <div id="input-tab" class="tab-content active">
+    <div class="card">
+      <div class="card-title">新規計測データ登録</div>
+      
+      <!-- 前回値リファレンス表示エリア -->
+      <div id="reference-info" class="reference-box">
+        ℹ️ 場所を選択すると、前回の計測記録がここに表示されます。
+      </div>
+
+      <form id="inspection-form">
+        <div class="row">
+          <div class="col form-group">
+            <label for="basin-select">流域選択</label>
+            <select id="basin-select" required></select>
+          </div>
+          <div class="col form-group">
+            <label for="location-select">場所選択</label>
+            <select id="location-select" required></select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="timestamp-input">現在時刻 (記録日時)</label>
+          <input type="datetime-local" id="timestamp-input" required>
+        </div>
+
+        <div class="row">
+          <div class="col form-group">
+            <label for="pl-input">PL値 (0 ～ 40)</label>
+            <input type="number" min="0" max="40" inputmode="numeric" id="pl-input" required>
+          </div>
+          <div class="col form-group">
+            <label for="cl-input">CL値 (0 ～ 40)</label>
+            <input type="number" min="0" max="40" inputmode="numeric" id="cl-input" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="font-weight:normal; font-size:0.9rem; display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+            <input type="checkbox" id="unmeasurable-chk" style="width:18px; height:18px;">
+            <strong>計測不可とする (PL=0, CL=0)</strong>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label for="memo-input">備考・メモ</label>
+          <textarea id="memo-input" placeholder="現場の状況、天候、特記事項などを入力..."></textarea>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <button type="submit" class="btn btn-primary">💾 データを登録して多重保存</button>
+          <div id="auto-save-indicator" style="text-align: center; font-size: 0.85rem; color: var(--success); margin-top: 0.5rem; font-weight: bold;"></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. データ一覧タブ -->
+  <div id="view-tab" class="tab-content">
+    <div class="card">
+      <div class="card-title">
+        登録データ一覧
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-secondary btn-sm" id="export-csv-btn">📄 CSV出力</button>
+          <button class="btn btn-secondary btn-sm" id="export-json-btn">📦 JSON</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <input type="text" id="search-filter" placeholder="流域・場所名・備考キーワードで検索...">
+      </div>
+      <div id="records-list-container"></div>
+    </div>
+  </div>
+
+  <!-- 3. 流域・場所設定タブ -->
+  <div id="master-tab" class="tab-content">
+    <div class="card">
+      <div class="card-title">流域・場所の自由編集</div>
+      <div id="master-editor-container"></div>
+      <div style="margin-top: 1rem;">
+        <button class="btn btn-warning btn-sm" id="reset-master-btn">🔄 初期設定に戻す</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. バックアップタブ -->
+  <div id="backup-tab" class="tab-content">
+    <div class="card">
+      <div class="card-title">データ消失防止センター</div>
+      <p style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--text-sub);">LocalStorageによる安全な保持およびファイル書き出し・復元を行います。</p>
+      
+      <div class="form-group">
+        <label>全データのエクスポート</label>
+        <button class="btn btn-primary" id="export-json-btn-2">JSONファイルでダウンロード</button>
+      </div>
+
+      <div class="form-group" style="margin-top: 1.5rem;">
+        <label for="import-file">バックアップからの復元</label>
+        <input type="file" id="import-file" accept=".json" style="margin-bottom: 0.5rem;">
+        <button class="btn btn-secondary" id="import-json-btn">JSONファイルを取り込んで復元</button>
+      </div>
+
+      <div id="storage-status-info" style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-sub); background: #f1f5f9; padding: 0.75rem; border-radius: 6px;"></div>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_BASIN_MASTER = {
+      "R流域": [],
+      "H流域": ["H1", "H2", "H3", "H4", "H5"],
+      "M流域": [],
+      "K流域": [],
+      "A流域": []
+    };
+
+    class LocalSyncRepository {
+      constructor() {
+        this.recordsKey = "hydrology_records_v4";
+        this.masterKey = "hydrology_master_v4";
+        this.draftKey = "hydrology_draft_v4";
+      }
+
+      getAllRecords() {
+        try {
+          const raw = localStorage.getItem(this.recordsKey);
+          const list = raw ? JSON.parse(raw) : [];
+          return list.filter(r => !r.isDeleted);
+        } catch (e) {
+          return [];
+        }
+      }
+
+      saveRecord(record) {
+        const rawAll = JSON.parse(localStorage.getItem(this.recordsKey) || "[]");
+        const idx = rawAll.findIndex(r => r.id === record.id);
+        if (idx >= 0) {
+          rawAll[idx] = record;
+        } else {
+          rawAll.push(record);
+        }
+        localStorage.setItem(this.recordsKey, JSON.stringify(rawAll));
+      }
+
+      deleteRecord(id) {
+        const rawAll = JSON.parse(localStorage.getItem(this.recordsKey) || "[]");
+        const target = rawAll.find(r => r.id === id);
+        if (target) {
+          target.isDeleted = true;
+          localStorage.setItem(this.recordsKey, JSON.stringify(rawAll));
+        }
+      }
+
+      getMaster() {
+        const raw = localStorage.getItem(this.masterKey);
+        if (!raw) {
+          this.saveMaster(DEFAULT_BASIN_MASTER);
+          return DEFAULT_BASIN_MASTER;
+        }
+        try { return JSON.parse(raw); } catch (e) { return DEFAULT_BASIN_MASTER; }
+      }
+
+      saveMaster(master) {
+        localStorage.setItem(this.masterKey, JSON.stringify(master));
+      }
+
+      saveDraft(draft) {
+        try { sessionStorage.setItem(this.draftKey, JSON.stringify(draft)); } catch(e) {}
+      }
+
+      getDraft() {
+        try {
+          const raw = sessionStorage.getItem(this.draftKey);
+          return raw ? JSON.parse(raw) : null;
+        } catch(e) { return null; }
+      }
+
+      clearDraft() {
+        try { sessionStorage.removeItem(this.draftKey); } catch(e) {}
+      }
+    }
+
+    const repo = new LocalSyncRepository();
+    let basinMaster = {};
+
+    document.addEventListener("DOMContentLoaded", () => {
+      basinMaster = repo.getMaster();
+      renderBasinSelects();
+      renderMasterEditor();
+
+      // 現在日時セット
+      const now = new Date();
+      const isoLocal = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+      const timeInput = document.getElementById("timestamp-input");
+      if (timeInput && !timeInput.value) timeInput.value = isoLocal;
+
+      restoreDraftIfExists();
+      renderRecordsList();
+      updateStorageStatusInfo();
+      initEventListeners();
+      updateReferenceInfo();
+    });
+
+    function initEventListeners() {
+      // タブ切り替え
+      document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const targetId = btn.getAttribute("data-target");
+          document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+          document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
+          
+          document.getElementById(targetId).classList.add("active");
+          btn.classList.add("active");
+
+          if (targetId === "view-tab") renderRecordsList();
+          if (targetId === "master-tab") renderMasterEditor();
+          if (targetId === "backup-tab") updateStorageStatusInfo();
+        });
+      });
+
+      // 流域・場所変更時
+      document.getElementById("basin-select").addEventListener("change", () => {
+        onBasinChange();
+        updateReferenceInfo();
+        saveDraft();
+      });
+
+      document.getElementById("location-select").addEventListener("change", () => {
+        updateReferenceInfo();
+        saveDraft();
+      });
+
+      document.getElementById("timestamp-input").addEventListener("change", saveDraft);
+      document.getElementById("pl-input").addEventListener("input", saveDraft);
+      document.getElementById("cl-input").addEventListener("input", saveDraft);
+      document.getElementById("memo-input").addEventListener("input", saveDraft);
+
+      // 計測不可チェックボックス
+      document.getElementById("unmeasurable-chk").addEventListener("change", (e) => {
+        const plInp = document.getElementById("pl-input");
+        const clInp = document.getElementById("cl-input");
+        if (e.target.checked) {
+          plInp.value = "0";
+          clInp.value = "0";
+          plInp.disabled = true;
+          clInp.disabled = true;
+        } else {
+          plInp.disabled = false;
+          clInp.disabled = false;
+        }
+        saveDraft();
+      });
+
+      // フォーム送信
+      document.getElementById("inspection-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const basin = document.getElementById("basin-select").value;
+        const location = document.getElementById("location-select").value;
+        const timestamp = document.getElementById("timestamp-input").value;
+        const isUnmeasurable = document.getElementById("unmeasurable-chk").checked;
+        const pl = parseInt(document.getElementById("pl-input").value, 10);
+        const cl = parseInt(document.getElementById("cl-input").value, 10);
+        const memo = document.getElementById("memo-input").value.trim();
+
+        if (!basin || !location) {
+          alert("流域と場所を正しく選択してください。");
+          return;
+        }
+
+        if (!isUnmeasurable) {
+          if (isNaN(pl) || pl < 0 || pl > 40 || isNaN(cl) || cl < 0 || cl > 40) {
+            alert("PLおよびCLの値は 0 から 40 の範囲で入力してください。");
+            return;
+          }
+        }
+
+        const record = {
+          id: "rec_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5),
+          basin,
+          location,
+          timestamp,
+          pl: isUnmeasurable ? 0 : pl,
+          cl: isUnmeasurable ? 0 : cl,
+          isUnmeasurable,
+          memo,
+          createdAt: Date.now()
+        };
+
+        repo.saveRecord(record);
+        triggerAutoJsonBackup();
+
+        const indicator = document.getElementById("auto-save-indicator");
+        indicator.textContent = "✅ 登録および多重バックアップ完了！";
+        setTimeout(() => { indicator.textContent = ""; }, 3000);
+
+        repo.clearDraft();
+        document.getElementById("pl-input").value = "";
+        document.getElementById("cl-input").value = "";
+        document.getElementById("memo-input").value = "";
+        document.getElementById("unmeasurable-chk").checked = false;
+        document.getElementById("pl-input").disabled = false;
+        document.getElementById("cl-input").disabled = false;
+
+        updateReferenceInfo();
+        renderRecordsList();
+        updateStorageStatusInfo();
+      });
+
+      // 検索フィルター
+      document.getElementById("search-filter").addEventListener("input", renderRecordsList);
+
+      // バックアップ・出力ボタン類
+      document.getElementById("export-csv-btn").addEventListener("click", exportCSV);
+      document.getElementById("export-json-btn").addEventListener("click", exportJSON);
+      document.getElementById("export-json-btn-2").addEventListener("click", exportJSON);
+      document.getElementById("import-json-btn").addEventListener("click", importJSON);
+      document.getElementById("reset-master-btn").addEventListener("click", resetMasterToDefault);
+    }
+
+    function renderBasinSelects() {
+      const basinSel = document.getElementById("basin-select");
+      const curBasin = basinSel.value;
+      basinSel.innerHTML = "";
+      const basins = Object.keys(basinMaster);
+
+      if (basins.length === 0) {
+        basinSel.innerHTML = '<option value="">流域がありません</option>';
+        return;
+      }
+
+      basins.forEach(b => {
+        const opt = document.createElement("option");
+        opt.value = b;
+        opt.textContent = b;
+        basinSel.appendChild(opt);
+      });
+
+      if (basins.includes(curBasin)) basinSel.value = curBasin;
+      onBasinChange();
+    }
+
+    function onBasinChange() {
+      const basinSel = document.getElementById("basin-select");
+      const locSel = document.getElementById("location-select");
+      const selected = basinSel.value;
+      locSel.innerHTML = "";
+
+      const locs = basinMaster[selected] || [];
+      if (locs.length === 0) {
+        locSel.innerHTML = '<option value="">(場所が登録されていません)</option>';
+        return;
+      }
+
+      locs.forEach(l => {
+        const opt = document.createElement("option");
+        opt.value = l;
+        opt.textContent = l;
+        locSel.appendChild(opt);
+      });
+    }
+
+    /**
+     * 過去データの「直近値」リファレンス表示更新
+     */
+    function updateReferenceInfo() {
+      const basin = document.getElementById("basin-select").value;
+      const location = document.getElementById("location-select").value;
+      const refBox = document.getElementById("reference-info");
+
+      if (!basin || !location) {
+        refBox.innerHTML = "ℹ️ 場所を選択すると、前回の計測記録がここに表示されます。";
+        return;
+      }
+
+      const records = repo.getAllRecords();
+      // 該当する流域・場所のレコードを抽出して日時降順ソート
+      const matched = records.filter(r => r.basin === basin && r.location === location);
+      matched.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      if (matched.length === 0) {
+        refBox.innerHTML = `📌 <strong>${basin} / ${location}</strong> の過去の計測記録はありません（初回データ）。`;
+        return;
+      }
+
+      const lastRec = matched[0];
+      const valStr = lastRec.isUnmeasurable ? "計測不可(0, 0)" : `PL: ${lastRec.pl} / CL: ${lastRec.cl}`;
+      const memoStr = lastRec.memo ? ` | 備考: ${lastRec.memo}` : "";
+      refBox.innerHTML = `📌 <strong>【直近前回値】</strong> ${lastRec.timestamp.replace('T', ' ')} 記録 → <strong>${valStr}</strong>${memoStr}`;
+    }
+
+    function triggerAutoJsonBackup() {
+      const all = repo.getAllRecords();
+      const blob = new Blob([JSON.stringify(all, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hydrology_autobackup_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function saveDraft() {
+      const basin = document.getElementById("basin-select").value;
+      const location = document.getElementById("location-select").value;
+      const timestamp = document.getElementById("timestamp-input").value;
+      const pl = document.getElementById("pl-input").value;
+      const cl = document.getElementById("cl-input").value;
+      const isUnmeasurable = document.getElementById("unmeasurable-chk").checked;
+      const memo = document.getElementById("memo-input").value;
+      repo.saveDraft({ basin, location, timestamp, pl, cl, isUnmeasurable, memo });
+    }
+
+    function restoreDraftIfExists() {
+      const draft = repo.getDraft();
+      if (!draft) return;
+      if (confirm("前回入力途中のデータがあります。復元しますか？")) {
+        if (draft.basin) document.getElementById("basin-select").value = draft.basin;
+        onBasinChange();
+        if (draft.location) document.getElementById("location-select").value = draft.location;
+        if (draft.timestamp) document.getElementById("timestamp-input").value = draft.timestamp;
+        if (draft.isUnmeasurable !== undefined) {
+          document.getElementById("unmeasurable-chk").checked = draft.isUnmeasurable;
+          document.getElementById("pl-input").disabled = draft.isUnmeasurable;
+          document.getElementById("cl-input").disabled = draft.isUnmeasurable;
+        }
+        if (draft.pl !== undefined) document.getElementById("pl-input").value = draft.pl;
+        if (draft.cl !== undefined) document.getElementById("cl-input").value = draft.cl;
+        if (draft.memo !== undefined) document.getElementById("memo-input").value = draft.memo;
+        updateReferenceInfo();
+      } else {
+        repo.clearDraft();
+      }
+    }
+
+    function renderRecordsList() {
+      const container = document.getElementById("records-list-container");
+      const filter = document.getElementById("search-filter").value.toLowerCase();
+      const records = repo.getAllRecords();
+      records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      // 検索フィルター（流域、場所、備考を対象）
+      const filtered = records.filter(r => 
+        r.basin.toLowerCase().includes(filter) || 
+        r.location.toLowerCase().includes(filter) || 
+        r.timestamp.includes(filter) ||
+        (r.memo && r.memo.toLowerCase().includes(filter))
+      );
+
+      container.innerHTML = "";
+      if (filtered.length === 0) {
+        container.innerHTML = `<div style="text-align:center; color:var(--text-sub); padding:1rem;">登録データがありません。</div>`;
+        return;
+      }
+
+      filtered.forEach(r => {
+        const div = document.createElement("div");
+        div.className = "list-item";
+        const valStr = r.isUnmeasurable ? '計測不可(0,0)' : `PL: ${r.pl} / CL: ${r.cl}`;
+        const memoHtml = r.memo ? `<div style="font-size:0.85rem; color:var(--text-sub); margin-top:0.2rem;">📝 備考: ${r.memo}</div>` : "";
+
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+            <strong><span class="badge">${r.basin}</span> ${r.location}</strong>
+            <button class="btn btn-danger btn-sm" style="padding:0.2rem 0.5rem;" onclick="window.deleteRecordItem('${r.id}')">削除</button>
+          </div>
+          <div style="font-size:0.85rem; color:var(--text-sub); margin-bottom:0.3rem;">📅 ${r.timestamp.replace('T', ' ')}</div>
+          <div style="font-size:0.9rem; background:#f8fafc; padding:0.4rem; border-radius:4px; font-weight:bold;">${valStr}</div>
+          ${memoHtml}
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    window.deleteRecordItem = function(id) {
+      if (confirm("この記録を削除しますか？")) {
+        repo.deleteRecord(id);
+        renderRecordsList();
+        updateStorageStatusInfo();
+        updateReferenceInfo();
+      }
+    };
+
+    function exportCSV() {
+      const records = repo.getAllRecords();
+      if (records.length === 0) {
+        alert("出力するデータがありません。");
+        return;
+      }
+
+      let csv = "\uFEFF記録ID,日時,流域,場所,PL,CL,計測不可,備考\n";
+      records.forEach(r => {
+        const memoClean = (r.memo || "").replace(/"/g, '""');
+        csv += `"${r.id}","${r.timestamp}","${r.basin}","${r.location}",${r.pl},${r.cl},${r.isUnmeasurable},"${memoClean}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hydrology_data_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportJSON() {
+      const records = repo.getAllRecords();
+      const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hydrology_master_backup_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importJSON() {
+      const fileInput = document.getElementById("import-file");
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert("ファイルを選択してください。");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!Array.isArray(data)) throw new Error("無効な形式");
+          for (const rec of data) {
+            if (rec.id && rec.basin) repo.saveRecord(rec);
+          }
+          alert("復元・統合が完了しました！");
+          renderRecordsList();
+          updateStorageStatusInfo();
+          updateReferenceInfo();
+        } catch (err) {
+          alert("復元に失敗しました: " + err.message);
+        }
+      };
+      reader.readAsText(fileInput.files[0]);
+    }
+
+    function renderMasterEditor() {
+      const container = document.getElementById("master-editor-container");
+      container.innerHTML = "";
+
+      Object.keys(basinMaster).forEach(basin => {
+        const locs = basinMaster[basin] || [];
+        const div = document.createElement("div");
+        div.style.marginBottom = "0.75rem";
+        div.style.padding = "0.75rem";
+        div.style.border = "1px solid var(--border)";
+        div.style.borderRadius = "6px";
+        div.style.background = "#f8fafc";
+
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+            <strong>🌊 ${basin}</strong>
+            <button class="btn btn-secondary btn-sm" onclick="window.addLocationPrompt('${basin}')">＋ 場所追加</button>
+          </div>
+          <div style="font-size:0.85rem; color:var(--text-sub);">
+            ${locs.length === 0 ? '<i>場所なし</i>' : locs.map(l => `<span class="badge" style="margin-right:0.3rem; margin-bottom:0.3rem; display:inline-flex; align-items:center; gap:0.3rem;">${l} <span style="cursor:pointer; color:var(--danger); font-weight:bold;" onclick="window.removeLocationItem('${basin}','${l}')">×</span></span>`).join("")}
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    window.addLocationPrompt = function(basin) {
+      const name = prompt(`「${basin}」に追加する場所名を入力:`);
+      if (!name || !name.trim()) return;
+      const trimmed = name.trim();
+      if (basinMaster[basin].includes(trimmed)) {
+        alert("既に存在します");
+        return;
+      }
+      basinMaster[basin].push(trimmed);
+      repo.saveMaster(basinMaster);
+      renderMasterEditor();
+      renderBasinSelects();
+    };
+
+    window.removeLocationItem = function(basin, loc) {
+      if (confirm(`「${basin}」から「${loc}」を削除しますか？`)) {
+        basinMaster[basin] = basinMaster[basin].filter(l => l !== loc);
+        repo.saveMaster(basinMaster);
+        renderMasterEditor();
+        renderBasinSelects();
+      }
+    };
+
+    function resetMasterToDefault() {
+      if (confirm("マスタを初期設定にリセットしますか？")) {
+        basinMaster = JSON.parse(JSON.stringify(DEFAULT_BASIN_MASTER));
+        repo.saveMaster(basinMaster);
+        renderMasterEditor();
+        renderBasinSelects();
+        alert("リセットしました。");
+      }
+    }
+
+    function updateStorageStatusInfo() {
+      const records = repo.getAllRecords();
+      const infoEl = document.getElementById("storage-status-info");
+      if (infoEl) {
+        infoEl.innerHTML = `📌 <strong>保護状況:</strong> 有効レコード数: <strong>${records.length} 件</strong> | LocalStorage & 自動ファイル保護 稼働中`;
+      }
+    }
+  </script>
+</body>
+</html>
